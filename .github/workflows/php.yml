@@ -1,39 +1,42 @@
-name: PHP Composer
+name: Run PHP Stalker Playlist
 
 on:
+  workflow_dispatch:  # manual trigger
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
+    branches: [ main ]  # or change to your branch
 
 jobs:
-  build:
-
+  run-php:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      # Step 1: Checkout code
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
+      # Step 2: Install PHP & Apache
+      - name: Install PHP & Apache
+        run: |
+          sudo apt update
+          sudo apt install -y apache2 php libapache2-mod-php php-curl php-mbstring php-xml php-json
 
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
+      # Step 3: Move files to web server root
+      - name: Set up Apache web root
+        run: |
+          sudo cp -r . /var/www/html/
+          sudo chown -R www-data:www-data /var/www/html
 
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
+      # Step 4: Start Apache (optional, if you want to test via curl localhost)
+      - name: Start Apache
+        run: sudo systemctl start apache2
 
-    # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
-    # Docs: https://getcomposer.org/doc/articles/scripts.md
+      # Step 5: Run the PHP script
+      - name: Execute playlist.php
+        run: php playlist.php > playlist_output.m3u
 
-    # - name: Run test suite
-    #   run: composer run-script test
+      # Step 6: Upload the generated M3U file as an artifact
+      - name: Upload Playlist Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: playlist-output
+          path: playlist_output.m3u
